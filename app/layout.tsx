@@ -9,7 +9,7 @@ import { Toaster } from "sonner";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Restaurant Order",
+  title: "Direct Order",
   description: "Place your order quickly",
   manifest: "/manifest.json",
 };

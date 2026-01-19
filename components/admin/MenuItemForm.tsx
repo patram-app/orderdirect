@@ -123,12 +123,19 @@ export default function MenuItemForm({ initialData, restaurantSlug, existingCate
                     </Select>
                 ) : (
                     <div>
-                        <Input
-                            autoFocus={categoryMode === "new"}
-                            value={formData.category}
-                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                            placeholder="New category name (e.g. Starters)"
-                        />
+                        <div className="relative">
+                            <Input
+                                autoFocus={categoryMode === "new"}
+                                value={formData.category}
+                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                placeholder="New category name (e.g. Starters)"
+                                maxLength={40}
+                                className="pr-12"
+                            />
+                            <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none bg-white pl-1">
+                                {formData.category.length}/40
+                            </span>
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1 flex items-center">
                             <Info className="w-3 h-3 mr-1" />
                             Use a descriptive name.
@@ -138,21 +145,34 @@ export default function MenuItemForm({ initialData, restaurantSlug, existingCate
             </div>
             <div className="space-y-2">
                 <Label className="text-sm">Item Name</Label>
-                <Input
-                    required
-                    value={formData.itemName}
-                    onChange={(e) => setFormData({ ...formData, itemName: e.target.value })}
-                    placeholder="e.g. Butter Chicken"
-                />
+                <div className="relative">
+                    <Input
+                        required
+                        value={formData.itemName}
+                        onChange={(e) => setFormData({ ...formData, itemName: e.target.value })}
+                        placeholder="e.g. Butter Chicken"
+                        maxLength={100}
+                        className="pr-14"
+                    />
+                    <span className="absolute right-3 top-2.5 text-xs text-muted-foreground pointer-events-none bg-white pl-1">
+                        {formData.itemName.length}/100
+                    </span>
+                </div>
             </div>
             <div className="space-y-2">
                 <Label className="text-sm">Description</Label>
-                <Textarea
-                    className="resize-none h-20"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Describe the dish..."
-                />
+                <div className="relative">
+                    <Textarea
+                        className="resize-none h-20 pr-14"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Describe the dish..."
+                        maxLength={250}
+                    />
+                    <span className="absolute right-3 bottom-2 text-xs text-muted-foreground pointer-events-none bg-white/50 pl-1 rounded">
+                        {formData.description.length}/250
+                    </span>
+                </div>
             </div>
             <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">Dietary Type</Label>
@@ -246,13 +266,19 @@ export default function MenuItemForm({ initialData, restaurantSlug, existingCate
                         </div>
                         {formData.variants.map((variant, idx) => (
                             <div key={idx} className="flex gap-2 items-center">
-                                <Input
-                                    placeholder="Label (e.g. Half)"
-                                    value={variant.label}
-                                    onChange={(e) => updateVariant(idx, 'label', e.target.value)}
-                                    required={formData.hasVariants}
-                                    className="flex-1 text-sm"
-                                />
+                                <div className="relative flex-1">
+                                    <Input
+                                        placeholder="Label (e.g. Half)"
+                                        value={variant.label}
+                                        onChange={(e) => updateVariant(idx, 'label', e.target.value)}
+                                        required={formData.hasVariants}
+                                        className="w-full text-sm pr-12"
+                                        maxLength={20}
+                                    />
+                                    <span className="absolute right-2 top-2.5 text-[10px] text-muted-foreground pointer-events-none bg-white pl-1">
+                                        {variant.label.length}/20
+                                    </span>
+                                </div>
                                 <div className="relative w-24">
                                     <span className="absolute left-2 top-2 text-muted-foreground text-xs">₹</span>
                                     <Input

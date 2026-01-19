@@ -109,47 +109,138 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
 
     const handleSave = async (data: MenuItemFormValues) => {
         try {
-            // DELETE OLD items if editing (we rebuild them)
-            if (editingItem) {
-                const itemsToDelete = items.filter(
-                    i => i.itemName === editingItem.itemName && i.category === editingItem.category
-                );
-                await Promise.all(itemsToDelete.map(i => databases.deleteDocument(DATABASE_ID, MENU_ITEMS_COLLECTION_ID, i.$id)));
+            // 0. Client-Side Validation (Fail fast)
+            if (data.itemName.length > 100) {
+                toast.error("Item name is too long (max 100 chars)");
+                return;
             }
-
-            const permissions = [
-                Permission.read(Role.any()),
-                Permission.update(Role.user(user!.$id)),
-                Permission.delete(Role.user(user!.$id))
-            ];
-
-            // Create NEW items
+            if (data.category.length > 40) {
+                toast.error("Category is too long (max 40 chars)");
+                return;
+            }
+            if (data.description.length > 250) {
+                toast.error("Description is too long (max 250 chars)");
+                return;
+            }
             if (!data.hasVariants) {
-                await databases.createDocument(DATABASE_ID, MENU_ITEMS_COLLECTION_ID, ID.unique(), {
-                    restaurantSlug: data.restaurantSlug,
-                    ownerId: user!.$id,
-                    category: data.category,
-                    itemName: data.itemName,
-                    description: data.description,
-                    isVeg: data.isVeg,
-                    variant: null,
-                    price: data.price,
-                    isSoldOut: data.isSoldOut
-                }, permissions);
+                // No extra validation needed for single item price as it's number
             } else {
                 for (const v of data.variants) {
-                    await databases.createDocument(DATABASE_ID, MENU_ITEMS_COLLECTION_ID, ID.unique(), {
-                        restaurantSlug: data.restaurantSlug,
-                        ownerId: user!.$id,
-                        category: data.category,
-                        itemName: data.itemName,
-                        description: data.description,
-                        isVeg: data.isVeg,
-                        variant: v.label,
-                        price: v.price,
-                        isSoldOut: data.isSoldOut
-                    }, permissions);
+                    if (v.label.length > 20) {
+                        toast.error(`Variant "${v.label}" is too long (max 20 chars)`);
+                        return;
+                    }
                 }
+            }
+
+            // 1. Identify Existing Documents
+            // Map existing docs by variant key for O(1) lookup
+            const existingDocsMap = new Map<string, MenuItemDocument>();
+            if (editingItem) {
+                const currentDocs = items.filter(
+                    i => i.itemName === editingItem.itemName && i.category === editingItem.category
+                );
+                currentDocs.forEach(doc => {
+                    // Use a unique key for "no variant" (null) to distinguish from literal "null" string
+                    const key = doc.variant === null ? "___NULL_VARIANT___" : doc.variant;
+                    existingDocsMap.set(key, doc);
+                });
+            }
+
+            // 2. Prepare Target Variants
+            const targetVariants = !data.hasVariants
+                ? [{ variant: null, price: data.price }]
+                : data.variants.map(v => ({ variant: v.label, price: v.price }));
+
+            // Common data (mutable fields only)
+            const commonData = {
+                restaurantSlug: data.restaurantSlug,
+                category: data.category,
+                itemName: data.itemName,
+                description: data.description,
+                isVeg: data.isVeg,
+                isSoldOut: data.isSoldOut,
+            };
+
+            const updates: Promise<unknown>[] = [];
+            const creates: Promise<unknown>[] = [];
+
+            // Track keys that we matched so we know what to delete LATER
+            const matchedKeys = new Set<string>();
+
+            // 3. Prepare Update & Create Promises
+            for (const target of targetVariants) {
+                const key = target.variant === null ? "___NULL_VARIANT___" : target.variant;
+                const existing = existingDocsMap.get(key);
+
+                if (existing) {
+                    // MATCH FOUND -> UPDATE
+                    matchedKeys.add(key);
+
+                    const updatePayload = {
+                        ...commonData,
+                        variant: target.variant,
+                        price: target.price
+                        // ownerId is NOT sent on update, system fields excluded
+                    };
+
+                    updates.push(databases.updateDocument(
+                        DATABASE_ID,
+                        MENU_ITEMS_COLLECTION_ID,
+                        existing.$id,
+                        updatePayload
+                    ));
+                } else {
+                    // NO MATCH -> CREATE
+                    const createPayload = {
+                        ...commonData,
+                        ownerId: user!.$id, // Required for create
+                        variant: target.variant,
+                        price: target.price
+                    };
+
+                    const permissions = [
+                        Permission.read(Role.any()),
+                        Permission.update(Role.user(user!.$id)),
+                        Permission.delete(Role.user(user!.$id))
+                    ];
+
+                    creates.push(databases.createDocument(
+                        DATABASE_ID,
+                        MENU_ITEMS_COLLECTION_ID,
+                        ID.unique(),
+                        createPayload,
+                        permissions
+                    ));
+                }
+            }
+
+            // 4. CRITICAL: Execute Updates and Creates FIRST
+            // If these fail, we throw and NEVER run the deletes.
+            try {
+                await Promise.all([...updates, ...creates]);
+            } catch (error) {
+                console.error("Update/Create failed:", error);
+                toast.error("Failed to save changes. No items were deleted.");
+                throw error; // Stop execution
+            }
+
+            // 5. Calculate Deletes (Only run if we reached here)
+            // Any key in existingDocsMap that is NOT in matchedKeys is a delete
+            const deletes: Promise<unknown>[] = [];
+            existingDocsMap.forEach((doc, key) => {
+                if (!matchedKeys.has(key)) {
+                    deletes.push(databases.deleteDocument(
+                        DATABASE_ID,
+                        MENU_ITEMS_COLLECTION_ID,
+                        doc.$id
+                    ));
+                }
+            });
+
+            // 6. Execute Deletes
+            if (deletes.length > 0) {
+                await Promise.all(deletes);
             }
 
             setIsDialogOpen(false);
@@ -158,8 +249,11 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
             toast.success("Menu item saved successfully");
         } catch (error) {
             console.error(error);
-            toast.error("Failed to save menu item");
-            throw error;
+            // Verify if error was already tossed by inner try-catch
+            if (error instanceof Error && error.message !== "Failed to save changes. No items were deleted.") {
+                toast.error("Failed to save menu item");
+            }
+            // Logic above is slightly redundant but safe. The inner catch re-throws.
         }
     };
 
