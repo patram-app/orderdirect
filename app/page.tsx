@@ -239,7 +239,7 @@ export default function LandingPage() {
               <p className="mb-2">
                 DirectOrder is a technology platform that facilitates menu
                 browsing and order communication via WhatsApp. We do not process
-                payments, prepare food, or handle delivery of any orders.
+                payments; prepare food, or handle delivery of any orders.
               </p>
               <p className="mb-2">
                 All pricing, taxes, service charges, discounts, and final
