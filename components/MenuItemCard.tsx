@@ -132,24 +132,31 @@ export default function MenuItemCard({ item, isOrderingDisabled, restaurantSlug 
                 {/* Variants Section */}
                 {item.variants && item.variants.length > 0 && (
                     <div className="mt-4 space-y-2">
-                        {item.variants.map((v) => (
-                            <div
-                                key={v.label}
-                                className="flex items-center justify-between pl-3 pr-2 py-2 border-b border-gray-200 rounded-md mx-2 ml-4"
-                            >
-                                <div className="text-sm font-medium text-gray-700 uppercase tracking-wide">
-                                    {v.label}
-                                    <span className="text-gray-400 mx-1">•</span>
-                                    <span className="font-semibold text-gray-900">
-                                        ₹{v.price}
-                                    </span>
-                                </div>
+                        {[...item.variants]
+                            .sort((a, b) =>
+                                a.price !== b.price
+                                    ? a.price - b.price               // ✅ primary: price low → high
+                                    : a.label.localeCompare(b.label)  // ✅ fallback: stable alphabetical
+                            )
+                            .map((v) => (
+                                <div
+                                    key={v.label}
+                                    className="flex items-center justify-between pl-3 pr-2 py-2 border-b border-gray-200 rounded-md mx-2 ml-4"
+                                >
+                                    <div className="text-sm font-medium text-gray-700 uppercase tracking-wide">
+                                        {v.label}
+                                        <span className="text-gray-400 mx-1">•</span>
+                                        <span className="font-semibold text-gray-900">
+                                            ₹{v.price}
+                                        </span>
+                                    </div>
 
-                                {renderAddToCartBtn(v.price, v.label)}
-                            </div>
-                        ))}
+                                    {renderAddToCartBtn(v.price, v.label)}
+                                </div>
+                            ))}
                     </div>
                 )}
+
 
             </div>
 

@@ -62,6 +62,19 @@ export default function MenuItemForm({ initialData, restaurantSlug, existingCate
             toast.error("Please select a category");
             return;
         }
+
+        if (formData.hasVariants) {
+            const variantLabels = formData.variants.map(v => v.label.trim().toLowerCase());
+            const uniqueLabels = new Set(variantLabels);
+            if (uniqueLabels.size !== variantLabels.length) {
+                toast.error("Variant names must be unique");
+                return;
+            }
+            if (formData.variants.some(v => !v.label.trim())) {
+                toast.error("All variants must have a name");
+                return;
+            }
+        }
         setLoading(true);
         try {
             await onSave(formData);
@@ -264,45 +277,63 @@ export default function MenuItemForm({ initialData, restaurantSlug, existingCate
                                 Revert
                             </Button>
                         </div>
-                        {formData.variants.map((variant, idx) => (
-                            <div key={idx} className="flex gap-2 items-center">
-                                <div className="relative flex-1">
-                                    <Input
-                                        placeholder="Label (e.g. Half)"
-                                        value={variant.label}
-                                        onChange={(e) => updateVariant(idx, 'label', e.target.value)}
-                                        required={formData.hasVariants}
-                                        className="w-full text-sm pr-12"
-                                        maxLength={20}
-                                    />
-                                    <span className="absolute right-2 top-2.5 text-[10px] text-muted-foreground pointer-events-none bg-white pl-1">
-                                        {variant.label.length}/20
-                                    </span>
+                        {formData.variants.map((variant, idx) => {
+                            const isDuplicate = formData.variants.some((v, i) =>
+                                i !== idx &&
+                                v.label.trim().toLowerCase() === variant.label.trim().toLowerCase() &&
+                                variant.label.trim() !== ""
+                            );
+
+                            return (
+                                <div key={idx} className="space-y-1">
+                                    <div className="flex gap-2 items-center">
+                                        <div className="relative flex-1">
+                                            <Input
+                                                placeholder="Label (e.g. Half)"
+                                                value={variant.label}
+                                                onChange={(e) => updateVariant(idx, 'label', e.target.value)}
+                                                required={formData.hasVariants}
+                                                className={cn(
+                                                    "w-full text-sm pr-12",
+                                                    isDuplicate && "border-red-500 focus-visible:ring-red-500"
+                                                )}
+                                                maxLength={20}
+                                            />
+                                            <span className="absolute right-2 top-2.5 text-[10px] text-muted-foreground pointer-events-none bg-white pl-1">
+                                                {variant.label.length}/20
+                                            </span>
+                                        </div>
+                                        <div className="relative w-24">
+                                            <span className="absolute left-2 top-2 text-muted-foreground text-xs">₹</span>
+                                            <Input
+                                                type="number"
+                                                placeholder="0"
+                                                min="0"
+                                                value={variant.price || ''}
+                                                onChange={(e) => updateVariant(idx, 'price', Number(e.target.value))}
+                                                required={formData.hasVariants}
+                                                className="pl-5 text-sm"
+                                            />
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-muted-foreground hover:text-red-500"
+                                            onClick={() => removeVariant(idx)}
+                                            disabled={formData.variants.length <= 1}
+                                        >
+                                            <Trash2 size={14} />
+                                        </Button>
+                                    </div>
+                                    {isDuplicate && (
+                                        <p className="text-[10px] text-red-500 pl-1 font-medium">
+                                            Variant &quot;{variant.label}&quot; already exists
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="relative w-24">
-                                    <span className="absolute left-2 top-2 text-muted-foreground text-xs">₹</span>
-                                    <Input
-                                        type="number"
-                                        placeholder="0"
-                                        min="0"
-                                        value={variant.price || ''}
-                                        onChange={(e) => updateVariant(idx, 'price', Number(e.target.value))}
-                                        required={formData.hasVariants}
-                                        className="pl-5 text-sm"
-                                    />
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="text-muted-foreground hover:text-red-500"
-                                    onClick={() => removeVariant(idx)}
-                                    disabled={formData.variants.length <= 1}
-                                >
-                                    <Trash2 size={14} />
-                                </Button>
-                            </div>
-                        ))}
+                            );
+                        })}
                         {formData.variants.length < 3 && (
                             <Button
                                 type="button"

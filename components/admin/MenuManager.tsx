@@ -446,20 +446,37 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
                                                 <div className="bg-gray-50/50 rounded-lg p-3 space-y-2 mb-3">
                                                     {hasVariants ? (
                                                         <div className="space-y-1.5">
-                                                            {group.map(v => (
-                                                                <div key={v.$id} className="flex justify-between items-center text-sm">
-                                                                    <span className="text-gray-600 font-medium text-xs uppercase tracking-wide">{v.variant}</span>
-                                                                    <span className="font-semibold text-gray-900">₹{v.price}</span>
-                                                                </div>
-                                                            ))}
+                                                            {[...group]
+                                                                .sort((a, b) =>
+                                                                    a.price !== b.price
+                                                                        ? a.price - b.price
+                                                                        : (a.variant ?? "").localeCompare(b.variant ?? "")
+                                                                )
+
+                                                                .map(v => (
+                                                                    <div
+                                                                        key={v.$id}
+                                                                        className="flex justify-between items-center text-sm"
+                                                                    >
+                                                                        <span className="text-gray-600 font-medium text-xs uppercase tracking-wide">
+                                                                            {v.variant}
+                                                                        </span>
+                                                                        <span className="font-semibold text-gray-900">
+                                                                            ₹{v.price}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
                                                         </div>
                                                     ) : (
                                                         <div className="flex justify-between items-center">
                                                             <span className="text-xs text-gray-500 font-medium">Price</span>
-                                                            <span className="font-bold text-lg text-gray-900">₹{item.price}</span>
+                                                            <span className="font-bold text-lg text-gray-900">
+                                                                ₹{item.price}
+                                                            </span>
                                                         </div>
                                                     )}
                                                 </div>
+
 
                                                 <div className="flex gap-2 pt-2 border-t border-gray-50">
                                                     <Button
