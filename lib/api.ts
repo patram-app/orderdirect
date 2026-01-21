@@ -1,6 +1,6 @@
 import { Query } from "appwrite";
 import { databases, RESTAURANTS_COLLECTION_ID, MENU_ITEMS_COLLECTION_ID, DATABASE_ID } from "./appwrite";
-import { RestaurantDocument, MenuItemDocument, Restaurant, MenuCategory, MenuItem, Variant } from "./types";
+import { RestaurantDocument, MenuItemDocument, Restaurant, MenuCategory, MenuItem } from "./types";
 
 /**
  * Validates the day keys from the DB to ensure they match the expected format.
@@ -62,7 +62,7 @@ export async function getMenu(slug: string): Promise<MenuCategory[]> {
             MENU_ITEMS_COLLECTION_ID,
             [
                 Query.equal("restaurantSlug", slug),
-                Query.limit(100), // Adjust limit if needed (or implement pagination)
+                Query.limit(250), // Adjust limit if needed (or implement pagination)
             ]
         );
         console.log(`[getMenu] fetching for slug: ${slug}`);

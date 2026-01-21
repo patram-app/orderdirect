@@ -38,7 +38,7 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
             const res = await databases.listDocuments(
                 DATABASE_ID,
                 MENU_ITEMS_COLLECTION_ID,
-                [Query.equal("restaurantSlug", restaurantSlug), Query.limit(100), Query.orderAsc("$createdAt")]
+                [Query.equal("restaurantSlug", restaurantSlug), Query.limit(250), Query.orderAsc("$createdAt")]
             );
             setItems(res.documents as unknown as MenuItemDocument[]);
         } catch (error) {
