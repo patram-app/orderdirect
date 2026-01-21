@@ -15,6 +15,8 @@ export interface RestaurantDocument extends Models.Document {
     supportsTakeaway: boolean;
     supportsDelivery: boolean;
 
+    onlineOrderingEnabled: boolean;
+
     manuallyClosed: boolean;
 
     // Timings (Strings HH:MM)
@@ -59,6 +61,8 @@ export interface Restaurant {
         takeaway: boolean;
         delivery: boolean;
     };
+
+    onlineOrderingEnabled: boolean;
 
     manuallyClosed: boolean;
 

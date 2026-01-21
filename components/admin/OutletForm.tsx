@@ -48,6 +48,7 @@ const defaultData = {
   supportsDineIn: true,
   supportsTakeaway: true,
   supportsDelivery: true,
+  onlineOrderingEnabled: true,
   manuallyClosed: false,
   monOpen: "10:00",
   monClose: "23:00",
@@ -399,11 +400,16 @@ export default function OutletForm({
         </div>
       </div>
 
-      <div className="border-t pt-6 border-b pb-6 space-y-6">
+      <div className="border-t pt-6 border-b pb-6 space-y-8">
+
+        {/* SECTION 1: Services Offered (Physically) */}
         <div>
-          <h3 className="text-lg font-bold text-gray-900 mb-3">
-            Order Settings
+          <h3 className="text-lg font-bold text-gray-900 mb-1">
+            Services Offered
           </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Which services do you physically support at your outlet?
+          </p>
           <div className="flex flex-wrap gap-2">
             {([
               { key: "supportsDineIn", label: "Dine-In" },
@@ -433,9 +439,67 @@ export default function OutletForm({
           </div>
         </div>
 
+        {/* SECTION 2: Online Ordering (WhatsApp) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">
+                Online Ordering
+              </h3>
+              <p className="text-sm text-gray-500">
+                Enable this to accept orders via WhatsApp.
+              </p>
+            </div>
+
+            <Switch
+              checked={formData.onlineOrderingEnabled !== false}
+              onCheckedChange={(checked) =>
+                handleChange("onlineOrderingEnabled", checked)
+              }
+              className="data-[state=checked]:bg-green-600"
+            />
+          </div>
+
+          <div className={cn(
+            "rounded-xl border-2 p-4 transition-all",
+            formData.onlineOrderingEnabled !== false
+              ? "border-green-200 bg-green-50"
+              : "border-amber-200 bg-amber-50"
+          )}>
+            <div className="flex items-start gap-3">
+              {formData.onlineOrderingEnabled !== false ? (
+                <>
+                  <div className="bg-green-100 p-2 rounded-full shrink-0">
+                    <Check className="text-green-700" size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-green-800">Accepting Online Orders</h4>
+                    <p className="text-sm text-green-700/80 mt-1">
+                      Customers can browse your menu and place orders via WhatsApp.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-amber-100 p-2 rounded-full shrink-0">
+                    <Info className="text-amber-700" size={20} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-amber-800">Menu Only Mode</h4>
+                    <p className="text-sm text-amber-700/80 mt-1">
+                      Online ordering is <strong>disabled</strong>. Customers can view your menu but cannot place orders via the website. Call button is still visible.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: Kitchen Status (Always visible) */}
         <div
           className={cn(
-            "flex flex-col gap-3 p-4 rounded-xl border-2 transition-colors",
+            "flex flex-col gap-3 p-4 rounded-xl border-2 transition-colors animate-in fade-in slide-in-from-top-2",
             formData.manuallyClosed
               ? "border-red-200 bg-red-50"
               : "border-gray-200 bg-gray-50",
@@ -448,8 +512,8 @@ export default function OutletForm({
               </Label>
               <p className="text-sm text-gray-500">
                 {formData.manuallyClosed
-                  ? "Kitchen is CLOSED. Not accepting orders."
-                  : "Kitchen is OPEN. Accepting orders."}
+                  ? "Kitchen is CLOSED. Outlet will appear closed."
+                  : "Kitchen is OPEN."}
               </p>
             </div>
             <Switch

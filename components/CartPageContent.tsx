@@ -2,7 +2,7 @@
 
 import { useCart } from "@/context/CartContext";
 import { generateWhatsAppLink } from "@/lib/whatsappUtils";
-import { ArrowLeft, Minus, Plus, UtensilsCrossed, Clock, XCircle, MapPin, User, Phone, Store, Bike, AlertCircle, ShoppingBag, Info, ChevronDown } from "lucide-react";
+import { ArrowLeft, Minus, Plus, UtensilsCrossed, Clock, XCircle, MapPin, User, Phone, Store, Bike, AlertCircle, ShoppingBag, Info, ChevronDown, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -67,7 +67,7 @@ function AutoClearCountdown({
 }
 
 export default function CartPageContent({ restaurant }: { restaurant: Restaurant }) {
-    const { cartItems, customerDetails, setCustomerDetails, getCartTotal, updateQuantity, placeOrder, cancelAutoClear, lastOrderTime, dontClear } = useCart(restaurant.slug);
+    const { cartItems, customerDetails, setCustomerDetails, getCartTotal, updateQuantity, placeOrder, cancelAutoClear, lastOrderTime, dontClear, clearCart } = useCart(restaurant.slug);
     const [orderType, setOrderType] = useState<"dine-in" | "takeaway" | "delivery">(() => {
         if (restaurant.supports.dineIn) return "dine-in";
         if (restaurant.supports.takeaway) return "takeaway";
@@ -86,7 +86,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
     }>({});
 
     const restaurantStatus = getRestaurantStatus(restaurant);
-    const isOrderingDisabled = restaurantStatus === "MANUALLY_CLOSED";
+    const isOrderingDisabled = restaurantStatus === "MANUALLY_CLOSED" || !restaurant.onlineOrderingEnabled;
 
     // Determine supported order types
     const supportedOrderTypes = useMemo(() => [
@@ -212,13 +212,27 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                 <Link href={`/h/${restaurant.slug}`} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-colors">
                     <ArrowLeft className="text-gray-700" size={20} />
                 </Link>
-                <h1 className="text-lg font-bold text-gray-900">Your Cart</h1>
+                <h1 className="text-lg font-bold text-gray-900 flex-1">Your Cart</h1>
+                {cartItems.length > 0 && (
+                    <button
+                        onClick={() => {
+                            if (window.confirm("Are you sure you want to clear your cart?")) {
+                                clearCart();
+                            }
+                        }}
+                        className="text-xs font-medium text-red-600 flex items-center gap-1 hover:bg-red-50 p-2 rounded-lg transition-colors"
+                    >
+                        <Trash2 size={16} />
+                        Clear
+                    </button>
+                )}
             </div>
 
             <div className="p-4 space-y-6 max-w-lg mx-auto">
                 <RestaurantStatusBanner
                     status={restaurantStatus}
                     whatsappNumber={restaurant.whatsappNumber}
+                    onlineOrderingEnabled={restaurant.onlineOrderingEnabled}
                     className="mb-0"
                 />
 
@@ -325,12 +339,12 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                     </div>
                 </div>
 
-                {/* Order Type & Details */}
+                {/* Order Type & Details - Only if Online Ordering is Enabled */}
+
                 <div className="space-y-4">
                     <h3 className="text-sm font-bold text-gray-900 px-1">Order Details</h3>
-
                     <div className="bg-white rounded-2xl p-4 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] space-y-6">
-
+                        {/* ... (Existing Order Type Selector and Inputs) ... */}
                         {/* Order Type Selector - Dynamic Grid */}
                         {supportedOrderTypes.length > 0 && (
                             <div className={cn(
@@ -493,7 +507,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                                             )}
                                         />
                                     </div>
-                                    <p className="text-[11px] text-gray-400 ml-1">If you haven’t arrived yet, you can leave this blank.</p>
+                                    <p className="text-11px text-gray-400 ml-1">If you haven’t arrived yet, you can leave this blank.</p>
                                 </div>
                             )}
                         </div>
@@ -535,7 +549,9 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                                 : "bg-[#25D366] hover:bg-[#1ebc57] text-white shadow-green-500/30"
                         )}
                     >
-                        {isOrderingDisabled ? "Ordering Disabled" : "Place Order on WhatsApp"}
+                        {isOrderingDisabled
+                            ? (!restaurant.onlineOrderingEnabled ? "Ordering Disabled (Menu Only)" : "Ordering Disabled")
+                            : "Place Order on WhatsApp"}
                     </Button>
                 </div>
             </div>

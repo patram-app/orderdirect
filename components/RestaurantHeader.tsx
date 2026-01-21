@@ -100,7 +100,7 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                     </p>
                 </div>
 
-                {/* Status Bar */}
+                {/* Status Bar - Always Visible */}
                 <div className="flex items-center gap-3 mb-6">
                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${isOpen
                         ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
@@ -115,6 +115,18 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                         <span>Today: {todayTimings && !(todayTimings.open === "00:00" && todayTimings.close === "00:00") ? `${formatTime(todayTimings.open)} - ${formatTime(todayTimings.close)}` : "Closed"}</span>
                     </div>
                 </div>
+
+                {/* Menu Only Banner */}
+                {!restaurant.onlineOrderingEnabled && (
+                    <div className="mb-6 animate-in fade-in slide-in-from-top-2">
+                        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium leading-normal w-full">
+                            <Phone size={14} className="shrink-0 fill-current" />
+                            <span>
+                                <strong>Menu Only:</strong> Online ordering unavailable. Please call or visit to order.
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 {/* Interactive Details Accordion */}
                 {/* Minimal Interactive Details */}

@@ -37,6 +37,7 @@ export async function getRestaurant(slug: string): Promise<Restaurant | null> {
                 takeaway: doc.supportsTakeaway,
                 delivery: doc.supportsDelivery,
             },
+            onlineOrderingEnabled: doc.onlineOrderingEnabled !== false, // Default to true if missing
             manuallyClosed: doc.manuallyClosed,
             timings: {
                 mon: getTimings(doc, "mon"),

@@ -47,7 +47,7 @@ export default function QrCodeGenerator() {
                 toast.error("Only directorder.shop domains are supported");
                 return;
             }
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
             // If URL parsing fails, assume it's a raw slug
         }

@@ -6,10 +6,11 @@ import { AlertCircle, Ban } from "lucide-react";
 interface RestaurantStatusBannerProps {
     status: RestaurantStatus;
     whatsappNumber: string;
+    onlineOrderingEnabled: boolean;
     className?: string;
 }
 
-export default function RestaurantStatusBanner({ status, whatsappNumber, className }: RestaurantStatusBannerProps) {
+export default function RestaurantStatusBanner({ status, whatsappNumber, onlineOrderingEnabled, className }: RestaurantStatusBannerProps) {
     if (status === "OPEN") return null;
 
     if (status === "MANUALLY_CLOSED") {
@@ -44,9 +45,9 @@ export default function RestaurantStatusBanner({ status, whatsappNumber, classNa
                             Kitchen is currently closed
                         </h3>
                         <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 leading-relaxed">
-                            You can place an order, but please confirm with the restaurant if they’re accepting orders right now.
+                            Please confirm with the restaurant if they’re accepting orders right now.
                         </p>
-                        <div className="mt-3">
+                        {onlineOrderingEnabled && <div className="mt-3">
                             <a
                                 href={`https://wa.me/${whatsappNumber}?text=Hi, is the kitchen open for orders right now?`}
                                 target="_blank"
@@ -55,7 +56,7 @@ export default function RestaurantStatusBanner({ status, whatsappNumber, classNa
                             >
                                 Ask if orders are accepted now
                             </a>
-                        </div>
+                        </div>}
                     </div>
                 </div>
             </div>
