@@ -1,10 +1,12 @@
 import { CartItem, Restaurant } from "@/lib/types";
+import { toTitleCase } from "@/lib/utils";
 
 interface OrderDetails {
   customerName: string;
   phone?: string;
   address?: string; // Delivery
   tableNumber?: string; // Dine-In (table / room / bar / location)
+  deliveryArea?: string; // Feature 1: Selected Area
   orderType: "dine-in" | "takeaway" | "delivery";
   items: CartItem[];
   total: number;
@@ -48,6 +50,11 @@ export function generateWhatsAppLink(
   // Delivery address (multiline for clarity)
   if (orderType === "delivery" && address) {
     message += `Address:\n${address}\n`;
+  }
+
+  // Feature 1: Delivery Area
+  if (orderType === "delivery" && order.deliveryArea) {
+    message += `Area: ${toTitleCase(order.deliveryArea)}\n`;
   }
 
   message += `--------------------------------\n`;

@@ -2,14 +2,16 @@
 
 import { useCart } from "@/context/CartContext";
 import { generateWhatsAppLink } from "@/lib/whatsappUtils";
-import { ArrowLeft, Minus, Plus, UtensilsCrossed, Clock, XCircle, MapPin, User, Phone, Store, Bike, AlertCircle, ShoppingBag, Info, ChevronDown, Trash2 } from "lucide-react";
+import { ArrowLeft, Minus, Plus, UtensilsCrossed, Clock, XCircle, MapPin, User, Phone, Store, Bike, AlertCircle, ShoppingBag, Info, ChevronDown, Trash2, Truck } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Restaurant } from "@/lib/types";
 import { getRestaurantStatus } from "@/lib/restaurantStatus";
 import RestaurantStatusBanner from "@/components/RestaurantStatusBanner";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UpiPaymentDialog } from "@/components/UpiPaymentDialog";
 
 // Inline Component for Countdown Banner
 function AutoClearCountdown({
@@ -77,12 +79,15 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
     const [mounted, setMounted] = useState(false);
     const [isTaxInfoOpen, setIsTaxInfoOpen] = useState(false);
 
+    const [selectedDeliveryArea, setSelectedDeliveryArea] = useState<string>("");
+
     // Error state for validation
     const [errors, setErrors] = useState<{
         name?: string;
         phone?: string;
         address?: string;
         tableNumber?: string;
+        deliveryArea?: string;
     }>({});
 
     const restaurantStatus = getRestaurantStatus(restaurant);
@@ -148,6 +153,17 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                 <Link href={`/h/${restaurant.slug}`}>
                     <Button size="lg" className="rounded-full px-8 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md">Browse Menu</Button>
                 </Link>
+                {/* Feature 2: UPI on Empty Cart */}
+                {restaurant.upiId && (
+                    <div className="mt-8 pt-8 border-t border-gray-100 w-full max-w-xs flex flex-col items-center">
+                        <p className="text-sm text-gray-500 mb-3">Want to pay for a previous order?</p>
+                        <UpiPaymentDialog
+                            upiId={restaurant.upiId}
+                            restaurantName={restaurant.name}
+                            whatsappNumber={restaurant.whatsappNumber}
+                        />
+                    </div>
+                )}
             </div>
         );
     }
@@ -168,6 +184,11 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
 
         if (orderType === "delivery" && !customerDetails.address?.trim()) {
             newErrors.address = "Delivery address is required";
+            isValid = false;
+        }
+
+        if (orderType === "delivery" && restaurant.deliveryAreas.length > 0 && !selectedDeliveryArea) {
+            newErrors.deliveryArea = "Please select a delivery area";
             isValid = false;
         }
 
@@ -194,6 +215,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
             phone: customerDetails.phone,
             address: customerDetails.address,
             tableNumber: finalTableNumber,
+            deliveryArea: selectedDeliveryArea, // Feature 1
             orderType,
             items: cartItems,
             total: getCartTotal(),
@@ -461,6 +483,44 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                                 </div>
                             )}
 
+                            {/* Feature 1: Delivery Area Select */}
+                            {orderType === "delivery" && restaurant.deliveryAreas.length > 0 && (
+                                <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide ml-1">
+                                        Delivery Area <span className="text-red-500">*</span>
+                                    </label>
+                                    <Select
+                                        value={selectedDeliveryArea}
+                                        onValueChange={(val) => {
+                                            setSelectedDeliveryArea(val);
+                                            if (errors.deliveryArea) setErrors({ ...errors, deliveryArea: undefined });
+                                        }}
+                                    >
+                                        <SelectTrigger className={cn(
+                                            "w-full bg-white rounded-xl h-12 border transition-all",
+                                            errors.deliveryArea
+                                                ? "border-red-300 ring-4 ring-red-500/10 focus:ring-red-500/10 error-input"
+                                                : "border-gray-200 focus:ring-4 focus:ring-primary/10 hover:border-gray-300"
+                                        )}>
+                                            <div className="flex items-center gap-3 text-left">
+                                                <Truck size={18} className="text-gray-400 shrink-0 ml-0.5" />
+                                                <SelectValue placeholder="Select your area" />
+                                            </div>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {restaurant.deliveryAreas.map((area) => (
+                                                <SelectItem key={area} value={area}>{toTitleCase(area)}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.deliveryArea && (
+                                        <p className="text-red-500 text-xs flex items-center gap-1 ml-1 animate-in slide-in-from-top-1">
+                                            <AlertCircle size={12} /> {errors.deliveryArea}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
                             {/* Conditional Inputs */}
                             {orderType === "delivery" && (
                                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -516,7 +576,21 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
 
             </div>
 
-            <div className="flex flex-col items-center justify-center">
+            <div className="flex flex-col items-center justify-center pb-8 gap-4">
+                {/* Feature 2: UPI on Cart Bottom */}
+                {restaurant.upiId && cartItems.length > 0 && (
+                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 flex flex-col items-center gap-2 w-full max-w-sm">
+                        <p className="text-xs font-medium text-blue-700">Have you placed the order? Pay now.</p>
+                        <UpiPaymentDialog
+                            upiId={restaurant.upiId} // Fix: pass string directly, not object
+                            restaurantName={restaurant.name}
+                            whatsappNumber={restaurant.whatsappNumber}
+
+                            className="bg-white border-blue-200 shadow-sm"
+                        />
+                    </div>
+                )}
+
                 <div className="text-xs tracking-wide text-gray-400">
                     Powered by
                 </div>
@@ -555,6 +629,6 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                     </Button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

@@ -16,10 +16,11 @@ import {
   ChevronUp,
   Copy,
   ExternalLink,
+  Plus,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn, normalizeArea, toTitleCase, copyToClipboard } from "@/lib/utils";
 import {
   databases,
   DATABASE_ID,
@@ -50,6 +51,8 @@ const defaultData = {
   supportsDelivery: true,
   onlineOrderingEnabled: true,
   manuallyClosed: false,
+  deliveryAreas: [],
+  upiId: "",
   monOpen: "10:00",
   monClose: "23:00",
   tueOpen: "10:00",
@@ -74,6 +77,7 @@ export default function OutletForm({
 }: OutletFormProps) {
   const [loading, setLoading] = useState(false);
   const [showAllHours, setShowAllHours] = useState(false);
+  const [newAreaInput, setNewAreaInput] = useState("");
 
 
 
@@ -116,10 +120,14 @@ export default function OutletForm({
     handleChange("slug", slug);
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const fullLink = `${origin}/h/${formData.slug}`;
-    navigator.clipboard.writeText(fullLink);
-    toast.success("Link copied to clipboard!");
+    const success = await copyToClipboard(fullLink);
+    if (success) {
+      toast.success("Link copied to clipboard!");
+    } else {
+      toast.error("Failed to copy link");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -525,6 +533,116 @@ export default function OutletForm({
             />
           </div>
         </div>
+
+        {/* Feature 1: Delivery Areas */}
+        <div>
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Delivery Settings</h3>
+            <p className="text-sm text-gray-500">Configure where you deliver.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex justify-between">
+              <Label className="text-sm font-medium text-gray-700">Delivery Areas (Optional)</Label>
+              <span className="text-xs text-gray-400">
+                {newAreaInput.length} / 70
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                id="new-area-input"
+                placeholder="e.g. Sector 14, Urban Estate"
+                className="flex-1 p-2 border rounded-md"
+                maxLength={70}
+                value={newAreaInput}
+                onChange={(e) => setNewAreaInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = normalizeArea(newAreaInput);
+                    if (val) {
+                      const current = formData.deliveryAreas || [];
+                      if (!current.includes(val)) {
+                        handleChange("deliveryAreas", [...current, val]);
+                      }
+                      setNewAreaInput("");
+                    }
+                  }
+                }}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!newAreaInput.trim()}
+                onClick={() => {
+                  const val = normalizeArea(newAreaInput);
+                  if (val) {
+                    const current = formData.deliveryAreas || [];
+                    if (!current.includes(val)) {
+                      handleChange("deliveryAreas", [...current, val]);
+                    }
+                    setNewAreaInput("");
+                  }
+                }}
+              >
+                <Plus size={16} /> Add
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap gap-2 mt-2">
+              {(formData.deliveryAreas || []).map((area, idx) => (
+                <div key={idx} className="flex items-center gap-1 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-sm border border-blue-100">
+                  <span>{toTitleCase(area)}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newAreas = [...(formData.deliveryAreas || [])];
+                      newAreas.splice(idx, 1);
+                      handleChange("deliveryAreas", newAreas);
+                    }}
+                    className="hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              {(formData.deliveryAreas || []).length === 0 && (
+                <p className="text-xs text-gray-400 italic">No specific areas defined. Customers won&apos;t be asked to select an area.</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Feature 2: UPI ID */}
+        <div>
+          <div className="mb-4">
+            <h3 className="text-lg font-bold text-gray-900">Payment Settings</h3>
+            <p className="text-sm text-gray-500">Configure payment options.</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <Label className="text-sm font-medium text-gray-700">UPI ID / VPA (Optional)</Label>
+              <span className="text-xs text-gray-400">
+                {(formData.upiId || "").length} / 40
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                className="w-full p-2 border rounded-md pl-10"
+                placeholder="merchant@upi"
+                maxLength={40}
+                value={formData.upiId || ""}
+                onChange={(e) => handleChange("upiId", e.target.value)}
+              />
+              <div className="absolute left-3 top-2.5 text-gray-400 font-bold text-xs">UPI</div>
+            </div>
+            <p className="text-xs text-gray-500">
+              Add your UPI ID to show a &quot;Pay via UPI&quot; button. Leave blank to hide.
+            </p>
+          </div>
+        </div>
+
       </div>
 
       <div>

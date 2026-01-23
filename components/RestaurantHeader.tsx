@@ -3,7 +3,10 @@
 
 import { useRef } from "react";
 import { Restaurant } from "@/lib/types";
-import { MapPin, Clock, Phone, ChevronDown, Utensils, Bike, X } from "lucide-react";
+import { MapPin, Clock, Phone, ChevronDown, Utensils, Bike } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { UpiPaymentDialog } from "./UpiPaymentDialog";
+import { toTitleCase } from "@/lib/utils";
 
 export default function RestaurantHeader({ restaurant }: { restaurant: Restaurant }) {
     const detailsRef = useRef<HTMLDetailsElement>(null);
@@ -53,11 +56,7 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
         return `${hour}:${minStr} ${ampm}`;
     };
 
-    const closeDetails = () => {
-        if (detailsRef.current) {
-            detailsRef.current.removeAttribute("open");
-        }
-    };
+
 
     // Ordered days for display
     const daysOrder = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -86,9 +85,39 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                             </span>
                         )}
                         {restaurant.supports.delivery && (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
-                                <Bike size={10} /> Delivery
-                            </span>
+                            restaurant.deliveryAreas && restaurant.deliveryAreas.length > 0 ? (
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <button className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800 hover:bg-blue-100 transition-colors cursor-pointer">
+                                            <Bike size={10} /> Delivery <ChevronDown size={10} />
+                                        </button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-xs">
+                                        <DialogHeader>
+                                            <DialogTitle className="flex items-center gap-2">
+                                                <Bike size={18} className="text-blue-600" />
+                                                Delivery Areas
+                                            </DialogTitle>
+                                        </DialogHeader>
+                                        <div className="py-2">
+                                            <p className="text-sm text-gray-500 mb-3">
+                                                We deliver to the following areas:
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {restaurant.deliveryAreas.map((area, cls) => (
+                                                    <span key={cls} className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-sm border border-blue-100">
+                                                        {toTitleCase(area)}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
+                                    <Bike size={10} /> Delivery
+                                </span>
+                            )
                         )}
                     </div>
 
@@ -117,6 +146,7 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                 </div>
 
                 {/* Menu Only Banner */}
+                {/* Menu Only Banner */}
                 {!restaurant.onlineOrderingEnabled && (
                     <div className="mb-6 animate-in fade-in slide-in-from-top-2">
                         <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 text-xs font-medium leading-normal w-full">
@@ -128,10 +158,12 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                     </div>
                 )}
 
+
+
                 {/* Interactive Details Accordion */}
                 {/* Minimal Interactive Details */}
-                <div className="pt-0">
-                    <details className="group" ref={detailsRef}>
+                <div className="pt-0 relative">
+                    <details className="group w-full" ref={detailsRef}>
                         <summary className="inline-flex items-center  gap-1 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden text-foreground/70 hover:text-primary/80 transition-colors">
                             <span className="text-sm font-semibold underline underline-offset-4 decoration-foreground/70 decoration-dashed group-hover:decoration-primary/60 transition-all">
                                 Outlet Details
@@ -140,14 +172,7 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                         </summary>
 
                         <div className="mt-4 pl-0 space-y-6 animate-in slide-in-from-top-2 fade-in duration-300 relative">
-                            {/* Close Button */}
-                            <button
-                                onClick={closeDetails}
-                                className="absolute -top-4 right-0 p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-500 hover:text-gray-900 transition-colors"
-                                aria-label="Close details"
-                            >
-                                <X size={14} />
-                            </button>
+
 
                             {/* Address & Contact */}
                             <div className="space-y-4">
@@ -212,6 +237,22 @@ export default function RestaurantHeader({ restaurant }: { restaurant: Restauran
                             )}
                         </div>
                     </details>
+
+                    {/* Feature 2: UPI Button Inline */}
+                    {restaurant.upiId && (
+                        <div className="absolute top-0 right-0">
+                            <UpiPaymentDialog
+                                upiId={restaurant.upiId}
+                                restaurantName={restaurant.name}
+                                whatsappNumber={restaurant.whatsappNumber}
+                                trigger={
+                                    <button className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5">
+                                        Pay via UPI
+                                    </button>
+                                }
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

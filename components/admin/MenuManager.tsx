@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { MenuItemDocument } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit2, Trash2, Loader2, Utensils } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Utensils, ChevronDown, ChevronUp } from "lucide-react";
 import { databases, DATABASE_ID, MENU_ITEMS_COLLECTION_ID } from "@/lib/appwrite";
 import { ID, Query, Permission, Role } from "appwrite";
 import MenuItemForm, { MenuItemFormValues } from "./MenuItemForm";
@@ -30,6 +30,7 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
     const [editingItem, setEditingItem] = useState<MenuItemFormValues | null>(null);
     const [searchQuery] = useState("");
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
 
     // Fetch Items
     const fetchItems = useCallback(async () => {
@@ -386,122 +387,138 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
                     </div>
                 ) : (
                     <div className="space-y-8 pb-20">
-                        {categories.map(cat => (
-                            <div key={cat} id={`category-${cat}`} className="scroll-mt-40 space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                                        {cat}
-                                        <span className="text-xs font-normal text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">
-                                            {filteredGroupedItems[cat].length}
-                                        </span>
-                                    </h3>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openEdit(undefined, cat)}
-                                        className="text-xs text-primary hover:bg-primary/5"
+                        {categories.map(cat => {
+                            const isExpanded = expandedCategories[cat];
+                            return (
+                                <div key={cat} id={`category-${cat}`} className="scroll-mt-40 space-y-4">
+                                    <div
+                                        className="flex items-center justify-between cursor-pointer select-none hover:bg-gray-50/50 p-2 -mx-2 rounded-lg transition-colors"
+                                        onClick={() => setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }))}
                                     >
-                                        <Plus className="h-3 w-3 mr-1" /> Add to {cat}
-                                    </Button>
-                                </div>
+                                        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                            {cat}
+                                            <span className="text-xs font-normal text-muted-foreground bg-gray-100 px-2 py-0.5 rounded-full">
+                                                {filteredGroupedItems[cat].length}
+                                            </span>
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openEdit(undefined, cat);
+                                                }}
+                                                className="text-xs text-primary hover:bg-primary/5 h-8"
+                                            >
+                                                <Plus className="h-3 w-3 mr-1" /> Add to {cat}
+                                            </Button>
+                                            <div className="h-8 w-8 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
+                                                {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {filteredGroupedItems[cat].map(group => {
-                                        const item = group[0];
-                                        const hasVariants = group.length > 1 || item.variant !== null;
+                                    {isExpanded && (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in slide-in-from-top-2 fade-in duration-200">
+                                            {filteredGroupedItems[cat].map(group => {
+                                                const item = group[0];
+                                                const hasVariants = group.length > 1 || item.variant !== null;
 
-                                        return (
-                                            <div key={item.$id} className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all hover:border-gray-200 relative overflow-hidden">
-                                                {/* Sold Out Overlay/Badge */}
-                                                {item.isSoldOut && (
-                                                    <div className="absolute top-0 right-0 bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 uppercase tracking-wide">
-                                                        Sold Out
-                                                    </div>
-                                                )}
+                                                return (
+                                                    <div key={item.$id} className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:shadow-md transition-all hover:border-gray-200 relative overflow-hidden">
+                                                        {/* Sold Out Overlay/Badge */}
+                                                        {item.isSoldOut && (
+                                                            <div className="absolute top-0 right-0 bg-gray-100 text-gray-500 text-[10px] font-bold px-2 py-1 rounded-bl-lg z-10 uppercase tracking-wide">
+                                                                Sold Out
+                                                            </div>
+                                                        )}
 
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <div className="flex gap-3">
-                                                        <div className={cn(
-                                                            "mt-1 w-4 h-4 rounded flex items-center justify-center border shrink-0",
-                                                            item.isVeg ? "border-green-600" : "border-red-600"
-                                                        )}>
-                                                            <div className={cn(
-                                                                "w-2 h-2 rounded-full",
-                                                                item.isVeg ? "bg-green-600" : "bg-red-600"
-                                                            )} />
+                                                        <div className="flex justify-between items-start mb-3">
+                                                            <div className="flex gap-3">
+                                                                <div className={cn(
+                                                                    "mt-1 w-4 h-4 rounded flex items-center justify-center border shrink-0",
+                                                                    item.isVeg ? "border-green-600" : "border-red-600"
+                                                                )}>
+                                                                    <div className={cn(
+                                                                        "w-2 h-2 rounded-full",
+                                                                        item.isVeg ? "bg-green-600" : "bg-red-600"
+                                                                    )} />
+                                                                </div>
+                                                                <div>
+                                                                    <h4 className={cn("font-bold text-gray-900 leading-tight", item.isSoldOut && "text-gray-400")}>
+                                                                        {item.itemName}
+                                                                    </h4>
+                                                                    {item.description && (
+                                                                        <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                                                                            {item.description}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <h4 className={cn("font-bold text-gray-900 leading-tight", item.isSoldOut && "text-gray-400")}>
-                                                                {item.itemName}
-                                                            </h4>
-                                                            {item.description && (
-                                                                <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
-                                                                    {item.description}
-                                                                </p>
+
+                                                        <div className="bg-gray-50/50 rounded-lg p-3 space-y-2 mb-3">
+                                                            {hasVariants ? (
+                                                                <div className="space-y-1.5">
+                                                                    {[...group]
+                                                                        .sort((a, b) =>
+                                                                            a.price !== b.price
+                                                                                ? a.price - b.price
+                                                                                : (a.variant ?? "").localeCompare(b.variant ?? "")
+                                                                        )
+
+                                                                        .map(v => (
+                                                                            <div
+                                                                                key={v.$id}
+                                                                                className="flex justify-between items-center text-sm"
+                                                                            >
+                                                                                <span className="text-gray-600 font-medium text-xs uppercase tracking-wide">
+                                                                                    {v.variant}
+                                                                                </span>
+                                                                                <span className="font-semibold text-gray-900">
+                                                                                    ₹{v.price}
+                                                                                </span>
+                                                                            </div>
+                                                                        ))}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex justify-between items-center">
+                                                                    <span className="text-xs text-gray-500 font-medium">Price</span>
+                                                                    <span className="font-bold text-lg text-gray-900">
+                                                                        ₹{item.price}
+                                                                    </span>
+                                                                </div>
                                                             )}
                                                         </div>
+
+
+                                                        <div className="flex gap-2 pt-2 border-t border-gray-50">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="flex-1 h-8 text-xs font-medium hover:bg-gray-50 hover:text-gray-900"
+                                                                onClick={() => openEdit(group)}
+                                                            >
+                                                                <Edit2 className="w-3 h-3 mr-1.5" /> Edit
+                                                            </Button>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100 hover:border-red-200"
+                                                                onClick={() => handleDelete(item.itemName, item.category)}
+                                                            >
+                                                                <Trash2 className="w-3 h-3" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
-                                                </div>
-
-                                                <div className="bg-gray-50/50 rounded-lg p-3 space-y-2 mb-3">
-                                                    {hasVariants ? (
-                                                        <div className="space-y-1.5">
-                                                            {[...group]
-                                                                .sort((a, b) =>
-                                                                    a.price !== b.price
-                                                                        ? a.price - b.price
-                                                                        : (a.variant ?? "").localeCompare(b.variant ?? "")
-                                                                )
-
-                                                                .map(v => (
-                                                                    <div
-                                                                        key={v.$id}
-                                                                        className="flex justify-between items-center text-sm"
-                                                                    >
-                                                                        <span className="text-gray-600 font-medium text-xs uppercase tracking-wide">
-                                                                            {v.variant}
-                                                                        </span>
-                                                                        <span className="font-semibold text-gray-900">
-                                                                            ₹{v.price}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex justify-between items-center">
-                                                            <span className="text-xs text-gray-500 font-medium">Price</span>
-                                                            <span className="font-bold text-lg text-gray-900">
-                                                                ₹{item.price}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-
-                                                <div className="flex gap-2 pt-2 border-t border-gray-50">
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="flex-1 h-8 text-xs font-medium hover:bg-gray-50 hover:text-gray-900"
-                                                        onClick={() => openEdit(group)}
-                                                    >
-                                                        <Edit2 className="w-3 h-3 mr-1.5" /> Edit
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-100 hover:border-red-200"
-                                                        onClick={() => handleDelete(item.itemName, item.category)}
-                                                    >
-                                                        <Trash2 className="w-3 h-3" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )
             }

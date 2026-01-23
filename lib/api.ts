@@ -39,6 +39,8 @@ export async function getRestaurant(slug: string): Promise<Restaurant | null> {
             },
             onlineOrderingEnabled: doc.onlineOrderingEnabled !== false, // Default to true if missing
             manuallyClosed: doc.manuallyClosed,
+            deliveryAreas: doc.deliveryAreas || [],         // Feature 1
+            upiId: doc.upiId || "",                         // Feature 2
             timings: {
                 mon: getTimings(doc, "mon"),
                 tue: getTimings(doc, "tue"),

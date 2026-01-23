@@ -19,6 +19,9 @@ export interface RestaurantDocument extends Models.Document {
 
     manuallyClosed: boolean;
 
+    deliveryAreas: string[]; // Feature 1
+    upiId: string;           // Feature 2
+
     // Timings (Strings HH:MM)
     monOpen: string; monClose: string;
     tueOpen: string; tueClose: string;
@@ -65,6 +68,9 @@ export interface Restaurant {
     onlineOrderingEnabled: boolean;
 
     manuallyClosed: boolean;
+
+    deliveryAreas: string[]; // Feature 1
+    upiId: string | null;    // Feature 2
 
     // Transformed from flat fields to nested object
     timings: {
