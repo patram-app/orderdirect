@@ -6,11 +6,11 @@ import { AlertCircle, Ban } from "lucide-react";
 interface RestaurantStatusBannerProps {
     status: RestaurantStatus;
     whatsappNumber: string;
-    onlineOrderingEnabled: boolean;
+    orderingMode: string;
     className?: string;
 }
 
-export default function RestaurantStatusBanner({ status, whatsappNumber, onlineOrderingEnabled, className }: RestaurantStatusBannerProps) {
+export default function RestaurantStatusBanner({ status, whatsappNumber, orderingMode, className }: RestaurantStatusBannerProps) {
     if (status === "OPEN") return null;
 
     if (status === "MANUALLY_CLOSED") {
@@ -47,16 +47,18 @@ export default function RestaurantStatusBanner({ status, whatsappNumber, onlineO
                         <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 leading-relaxed">
                             Please confirm with the restaurant if they’re accepting orders right now.
                         </p>
-                        {onlineOrderingEnabled && <div className="mt-3">
-                            <a
-                                href={`https://wa.me/${whatsappNumber}?text=Hi, is the kitchen open for orders right now?`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-800/40 dark:hover:bg-yellow-800/60 text-yellow-800 dark:text-yellow-100 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
-                            >
-                                Ask if orders are accepted now
-                            </a>
-                        </div>}
+                        {orderingMode !== 'menu' && (
+                            <div className="mt-3">
+                                <a
+                                    href={`https://wa.me/${whatsappNumber}?text=Hi, is the kitchen open for orders right now?`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center px-4 py-2 bg-yellow-100 hover:bg-yellow-200 dark:bg-yellow-800/40 dark:hover:bg-yellow-800/60 text-yellow-800 dark:text-yellow-100 text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
+                                >
+                                    Ask if orders are accepted now
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

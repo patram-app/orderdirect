@@ -160,7 +160,7 @@ export default function MenuBrowser({ menu, restaurant }: { menu: MenuCategory[]
                             <RestaurantStatusBanner
                                 status={restaurantStatus}
                                 whatsappNumber={restaurant.whatsappNumber}
-                                onlineOrderingEnabled={restaurant.onlineOrderingEnabled}
+                                orderingMode={restaurant.orderingMode}
                             />
                         </div>
 

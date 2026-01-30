@@ -8,10 +8,12 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Restaurant } from "@/lib/types";
 import { getRestaurantStatus } from "@/lib/restaurantStatus";
+import { createOrder } from "@/lib/api";
 import RestaurantStatusBanner from "@/components/RestaurantStatusBanner";
 import { cn, toTitleCase } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UpiPaymentDialog } from "@/components/UpiPaymentDialog";
+import OrderSuccessAnimation from "./OrderSuccessAnimation";
 
 // Inline Component for Countdown Banner
 function AutoClearCountdown({
@@ -76,10 +78,13 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
         return "delivery";
     });
     const [tableNumber, setTableNumber] = useState("");
+    const [selectedDeliveryArea, setSelectedDeliveryArea] = useState<string>("");
     const [mounted, setMounted] = useState(false);
     const [isTaxInfoOpen, setIsTaxInfoOpen] = useState(false);
 
-    const [selectedDeliveryArea, setSelectedDeliveryArea] = useState<string>("");
+    // ... inside CartPageContent component
+    const [orderSuccess, setOrderSuccess] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Error state for validation
     const [errors, setErrors] = useState<{
@@ -91,7 +96,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
     }>({});
 
     const restaurantStatus = getRestaurantStatus(restaurant);
-    const isOrderingDisabled = restaurantStatus === "MANUALLY_CLOSED" || !restaurant.onlineOrderingEnabled;
+    const isOrderingDisabled = restaurantStatus === "MANUALLY_CLOSED" || restaurant.orderingMode === 'menu';
 
     // Determine supported order types
     const supportedOrderTypes = useMemo(() => [
@@ -104,7 +109,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
 
     // Effect 1: Handle hydration mismatch
     useEffect(() => {
-        // eslint-disable-next-line
+
         setMounted(true);
     }, []);
 
@@ -121,7 +126,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                     .replace(/_/g, " ")
                     .replace(/\b\w/g, char => char.toUpperCase());
 
-                // eslint-disable-next-line
+
                 setTableNumber(formattedLoc);
                 setOrderType("dine-in");
             } else {
@@ -141,6 +146,10 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
 
 
     if (!mounted) return null;
+
+    if (orderSuccess) {
+        return <OrderSuccessAnimation restaurantSlug={restaurant.slug} />;
+    }
 
     if (cartItems.length === 0) {
         return (
@@ -172,59 +181,148 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
         const newErrors: typeof errors = {};
         let isValid = true;
 
+        // Base requirement: Name
         if (!customerDetails.name?.trim()) {
-            newErrors.name = "Please enter your name";
+            newErrors.name = "Name is required";
             isValid = false;
         }
 
-        if ((orderType === "takeaway" || orderType === "delivery") && !customerDetails.phone?.trim()) {
-            newErrors.phone = "Phone number is required";
-            isValid = false;
+        // Logic based on Order Type
+        if (orderType === "dine-in") {
+            // Require Table/Location
+            if (!tableNumber?.trim()) {
+                // Forcing user to input location if dine-in
+                // But UI says "Will inform on arrival" is default passed if empty?
+                // Requirement: "dine_in → require customerName + dineInLocation".
+                // UI Input placeholder says "optional". We must enforce it now.
+                // Let's create an error for it.
+                // Wait, existing logic allowed optional. New requirement says REQUIRED.
+                // I will enforce it.
+                // But if I enforce it, I need to make sure the UI reflects it's required.
+                // For now, let's keep it consistent with "Required customerName + dineInLocation"
+                // But usually dineInLocation might be "Walk-in" if unknown.
+                // Let's implement strict check.
+                // Actually, previously it was effectively optional. 
+                // Requirement: "dine_in → require customerName + dineInLocation"
+                // I'll make it required.
+                // But wait, the input in UI says (optional). I should probably change that label too if I make it required.
+                // Let's assume generic error for now or add specific field validation visually.
+                // The previous code had `tableNumber` state but no specific error field for it.
+                // I added `tableNumber` to error state earlier? Yes `tableNumber?: string`.
+                newErrors.tableNumber = "Table/Location is required";
+                isValid = false;
+            }
         }
 
-        if (orderType === "delivery" && !customerDetails.address?.trim()) {
-            newErrors.address = "Delivery address is required";
-            isValid = false;
+        if (orderType === "takeaway") {
+            // Require Phone
+            if (!customerDetails.phone?.trim()) {
+                newErrors.phone = "Phone is required for takeaway";
+                isValid = false;
+            }
         }
 
-        if (orderType === "delivery" && restaurant.deliveryAreas.length > 0 && !selectedDeliveryArea) {
-            newErrors.deliveryArea = "Please select a delivery area";
-            isValid = false;
+        if (orderType === "delivery") {
+            // Require Phone + Area + Address
+            if (!customerDetails.phone?.trim()) {
+                newErrors.phone = "Phone is required for delivery";
+                isValid = false;
+            }
+            if (restaurant.deliveryAreas.length > 0 && !selectedDeliveryArea) {
+                newErrors.deliveryArea = "Delivery area is required";
+                isValid = false;
+            }
+            if (!customerDetails.address?.trim()) {
+                newErrors.address = "Address is required";
+                isValid = false;
+            }
         }
 
         setErrors(newErrors);
         return isValid;
     };
 
-    const handlePlaceOrder = () => {
+    const handlePlaceOrder = async () => {
         if (isOrderingDisabled) return;
 
         if (!validateForm()) {
-            // Shake effect or scroll to error could be added here
             const firstErrorField = document.querySelector('.error-input');
             firstErrorField?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             return;
         }
 
-        const finalTableNumber = (orderType === "dine-in" && !tableNumber?.trim())
-            ? "Will inform on arrival"
-            : tableNumber;
+        setIsSubmitting(true);
+        const finalTableNumber = tableNumber;
 
-        const link = generateWhatsAppLink(restaurant, {
-            customerName: customerDetails.name,
-            phone: customerDetails.phone,
-            address: customerDetails.address,
-            tableNumber: finalTableNumber,
-            deliveryArea: selectedDeliveryArea, // Feature 1
-            orderType,
-            items: cartItems,
-            total: getCartTotal(),
-        });
+        try {
+            // ADMIN MODE: Await creation and show success
+            if (restaurant.orderingMode === 'admin_orders') {
+                const success = await createOrder({
+                    restaurantId: restaurant.id,
+                    orderType: orderType === "dine-in" ? "dine_in" : orderType,
+                    customerName: customerDetails.name,
+                    customerPhone: customerDetails.phone,
+                    dineInLocation: orderType === 'dine-in' ? (tableNumber || "N/A") : undefined,
+                    deliveryArea: selectedDeliveryArea,
+                    deliveryAddress: customerDetails.address,
+                    items: cartItems.map(i => ({
+                        name: i.name,
+                        qty: i.quantity,
+                        price: i.price,
+                        variant: i.variant
+                    })),
+                    total: getCartTotal()
+                });
 
-        // FEATURE: Auto-clear logic
-        placeOrder();
+                if (success) {
+                    clearCart();
+                    setOrderSuccess(true);
+                } else {
+                    alert("Failed to place order. Please try again.");
+                }
+            }
+            // WHATSAPP MODE (Default)
+            else {
+                const link = generateWhatsAppLink(restaurant, {
+                    customerName: customerDetails.name,
+                    phone: customerDetails.phone,
+                    address: customerDetails.address,
+                    tableNumber: finalTableNumber,
+                    deliveryArea: selectedDeliveryArea,
+                    orderType,
+                    items: cartItems,
+                    total: getCartTotal(),
+                });
 
-        window.open(link, "_blank");
+                // Background DB Create
+                createOrder({
+                    restaurantId: restaurant.id,
+                    orderType: orderType === "dine-in" ? "dine_in" : orderType,
+                    customerName: customerDetails.name,
+                    customerPhone: customerDetails.phone,
+                    dineInLocation: orderType === 'dine-in' ? (tableNumber || "N/A") : undefined,
+                    deliveryArea: selectedDeliveryArea,
+                    deliveryAddress: customerDetails.address,
+                    items: cartItems.map(i => ({
+                        name: i.name,
+                        qty: i.quantity,
+                        price: i.price,
+                        variant: i.variant
+                    })),
+                    total: getCartTotal()
+                }).catch(err => console.error("Background DB Create Failed", err));
+
+                window.open(link, "_blank");
+                // Auto-clear logic only for WhatsApp mode usually, or admin too?
+                // For WhatsApp, we use "placeOrder()" which sets the timer.
+                placeOrder();
+            }
+        } catch (err) {
+            console.error("Order error", err);
+            alert("Something went wrong.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -254,7 +352,7 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                 <RestaurantStatusBanner
                     status={restaurantStatus}
                     whatsappNumber={restaurant.whatsappNumber}
-                    onlineOrderingEnabled={restaurant.onlineOrderingEnabled}
+                    orderingMode={restaurant.orderingMode}
                     className="mb-0"
                 />
 
@@ -521,7 +619,6 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                                 </div>
                             )}
 
-                            {/* Conditional Inputs */}
                             {orderType === "delivery" && (
                                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
                                     <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide ml-1">Delivery Address</label>
@@ -552,22 +649,32 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
 
                             {orderType === "dine-in" && (
                                 <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-300">
-                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide ml-1">Table / Room / Location <span className="text-gray-400 font-normal lowercase ml-1">(optional)</span></label>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide ml-1">
+                                        Table / Room / Location <span className="text-red-500">*</span>
+                                    </label>
                                     <div className="relative">
                                         <Store className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                                         <input
                                             type="text"
-                                            placeholder="e.g. Table 5, Room 203, Will inform on arrival"
+                                            placeholder="e.g. Table 5, Room 203"
                                             value={tableNumber}
                                             onChange={(e) => {
                                                 setTableNumber(e.target.value);
+                                                if (errors.tableNumber) setErrors({ ...errors, tableNumber: undefined });
                                             }}
                                             className={cn(
-                                                "w-full pl-10 pr-4 py-3 bg-white rounded-xl border outline-none transition-all placeholder:text-gray-400 text-gray-900 border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10"
+                                                "w-full pl-10 pr-4 py-3 bg-white rounded-xl border outline-none transition-all placeholder:text-gray-400 text-gray-900",
+                                                errors.tableNumber
+                                                    ? "border-red-300 focus:border-red-500 focus:ring-4 focus:ring-red-500/10 error-input"
+                                                    : "border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10"
                                             )}
                                         />
                                     </div>
-                                    <p className="text-11px text-gray-400 ml-1">If you haven’t arrived yet, you can leave this blank.</p>
+                                    {errors.tableNumber && (
+                                        <p className="text-red-500 text-xs flex items-center gap-1 ml-1 animate-in slide-in-from-top-1">
+                                            <AlertCircle size={12} /> {errors.tableNumber}
+                                        </p>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -615,17 +722,22 @@ export default function CartPageContent({ restaurant }: { restaurant: Restaurant
                     </div>
                     <Button
                         onClick={handlePlaceOrder}
-                        disabled={isOrderingDisabled}
+                        disabled={restaurant.orderingMode === 'menu' || isSubmitting}
                         className={cn(
                             "flex-1 h-12 text-base font-semibold rounded-xl shadow-lg transition-all active:scale-[0.98]",
-                            isOrderingDisabled
+                            restaurant.orderingMode === 'menu'
                                 ? "bg-gray-200 text-gray-500 cursor-not-allowed hover:bg-gray-200 shadow-none border border-gray-300"
-                                : "bg-[#25D366] hover:bg-[#1ebc57] text-white shadow-green-500/30"
+                                : restaurant.orderingMode === 'admin_orders'
+                                    ? "bg-primary hover:bg-primary/90 text-white shadow-primary/30"
+                                    : "bg-[#25D366] hover:bg-[#1ebc57] text-white shadow-green-500/30"
                         )}
                     >
-                        {isOrderingDisabled
-                            ? (!restaurant.onlineOrderingEnabled ? "Ordering Disabled (Menu Only)" : "Ordering Disabled")
-                            : "Place Order on WhatsApp"}
+                        {restaurant.orderingMode === 'menu'
+                            ? "Ordering Disabled (Menu Only)"
+                            : isSubmitting
+                                ? "Processing..."
+                                : restaurant.orderingMode === 'admin_orders' ? "Place Order" : "Place Order on WhatsApp"
+                        }
                     </Button>
                 </div>
             </div>

@@ -308,12 +308,13 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50/30 -m-6 p-6">
+
+        <div className="bg-gray-50/30 p-6 min-h-[600px]">
             {/* Header Section */}
-            <div className=" z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-6 px-6 pb-4 pt-2 mb-6 space-y-4">
+            <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-6 px-6 py-4 mb-6 space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
-                        <h1 className="text-2xl text-gray-900 tracking-tight font-bold">
+                        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
                             Menu Management
                         </h1>
                         <p className="text-sm text-muted-foreground mt-1">
@@ -324,12 +325,10 @@ export default function MenuManager({ restaurantSlug }: MenuManagerProps) {
                     <div className="flex items-center gap-3 w-full sm:w-auto">
                         <Button
                             onClick={() => openEdit(undefined)}
-                            className="flex-1 sm:flex-none shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all"
+                            className="flex-1 sm:flex-none shadow-sm hover:shadow-md transition-all"
                         >
                             <Plus className="mr-2 h-4 w-4" /> Add New Item
                         </Button>
-
-
                     </div>
                 </div>
             </div>

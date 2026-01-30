@@ -1,37 +1,33 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { useState, useEffect } from "react";
 import OutletForm from "@/components/admin/OutletForm";
 import MenuManager from "@/components/admin/MenuManager";
 import { databases, DATABASE_ID, RESTAURANTS_COLLECTION_ID, MENU_ITEMS_COLLECTION_ID } from "@/lib/appwrite";
 import { RestaurantDocument } from "@/lib/types";
 import { Query } from "appwrite";
 import Footer from "@/components/Footer";
+import { LayoutDashboard, Store } from "lucide-react";
+import PlanStatusCard from "@/components/admin/PlanStatusCard";
 
 export default function AdminDashboard() {
-    const { user, loading: authLoading, logout } = useAuth();
-    const router = useRouter();
+    const { user } = useAuth();
     const [restaurant, setRestaurant] = useState<RestaurantDocument | null>(null);
     const [hasMenuItems, setHasMenuItems] = useState(false);
     const [loading, setLoading] = useState(true);
-
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState<"outlet" | "menu">("outlet");
 
     useEffect(() => {
         const fetchRestaurant = async () => {
+            if (!user) return;
             setLoading(true);
             try {
-                // NOTE: In a multi-tenant app, we'd query by Owner ID. 
-                // For this single-admin demo, we'll just fetch the first restaurant found 
                 const res = await databases.listDocuments(
                     DATABASE_ID,
                     RESTAURANTS_COLLECTION_ID,
                     [
-                        Query.equal("ownerId", user!.$id),
+                        Query.equal("ownerId", user.$id),
                         Query.limit(1)
                     ]
                 );
@@ -39,7 +35,6 @@ export default function AdminDashboard() {
                     const restDoc = res.documents[0] as unknown as RestaurantDocument;
                     setRestaurant(restDoc);
 
-                    // Check for menu items (Lock logic)
                     const menuRes = await databases.listDocuments(
                         DATABASE_ID,
                         MENU_ITEMS_COLLECTION_ID,
@@ -57,23 +52,19 @@ export default function AdminDashboard() {
             }
         };
 
-        if (!authLoading && !user) {
-            router.push("/admin/login");
-        } else if (user) {
-            fetchRestaurant();
-        }
-    }, [user, authLoading, router]);
+        fetchRestaurant();
+    }, [user]);
 
     const handleOutletSave = (data: RestaurantDocument) => {
         setRestaurant(data);
-        // After save, we refresh just to be sure, or just update state
         alert("Outlet details saved successfully!");
     };
 
-    if (authLoading || loading) {
+    if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="flex flex-col h-screen items-center justify-center bg-gray-50">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+                <p className="text-gray-500 font-medium animate-pulse">Loading Dashboard...</p>
             </div>
         );
     }
@@ -81,84 +72,74 @@ export default function AdminDashboard() {
     if (!user) return null;
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Admin Header */}
-            <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-
-                        <h1 className="text-2xl text-gray-900 tracking-tight">
-                            <span className="font-bold">Direct</span>
-                            <span className="font-medium">Order</span>
-                        </h1>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                className="w-10 h-10 rounded-full border-gray-200 hover:bg-gray-100 hover:text-gray-900"
-                                onClick={() => setIsProfileOpen(!isProfileOpen)}
-                            >
-                                <User className="h-5 w-5 text-gray-600" />
-                            </Button>
-
-                            {isProfileOpen && (
-                                <>
-                                    <div
-                                        className="fixed inset-0 z-40"
-                                        onClick={() => setIsProfileOpen(false)}
-                                    />
-                                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                                        <div className="px-3 py-2.5 border-b border-gray-50 mb-1 bg-gray-50/50 rounded-t-lg">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{user.name}</p>
-                                            <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => { logout(); setIsProfileOpen(false); }}
-                                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
-                                        >
-                                            <LogOut size={16} />
-                                            Sign Out
-                                        </button>
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* Main Content */}
+        <div className="min-h-screen bg-gray-50/50 font-sans">
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
-                {/* 1. Outlet Section */}
-                <section>
-                    <OutletForm
-                        initialData={restaurant}
-                        ownerId={user.$id}
-                        onSave={handleOutletSave}
-                        hasMenuItems={hasMenuItems}
-                    />
-                </section>
+                {restaurant && (
+                    <div className="animate-in fade-in slide-in-from-top-4 duration-500">
+                        <PlanStatusCard
+                            plan={restaurant.plan}
+                            planExpiry={restaurant.planExpiry}
+                            orderingMode={restaurant.orderingMode}
+                        />
+                    </div>
+                )}
 
-                {/* 2. Menu Section (Locked if no restaurant) */}
-                <section className={`transition-opacity duration-300 ${!restaurant ? "opacity-50 pointer-events-none grayscale" : ""}`}>
-                    {!restaurant && (
-                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-4 text-amber-800 text-sm font-medium">
-                            🔒 Please complete and save outlet details above to unlock Menu Management.
+                {/* Main Content Grid */}
+                <div>
+                    {/* Modern Tab Switcher */}
+                    <div className="flex justify-center mb-8">
+                        <div className="bg-white/80 backdrop-blur-sm p-1.5 rounded-full border border-gray-200/60 shadow-sm inline-flex">
+                            <button
+                                onClick={() => setActiveTab("outlet")}
+                                className={`
+                                    flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300
+                                    ${activeTab === "outlet"
+                                        ? "bg-gray-900 text-white shadow-md transform scale-[1.02]"
+                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/80"}
+                                `}
+                            >
+                                <Store size={18} />
+                                Settings
+                            </button>
+                            <button
+                                onClick={() => setActiveTab("menu")}
+                                className={`
+                                    flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all duration-300
+                                    ${activeTab === "menu"
+                                        ? "bg-gray-900 text-white shadow-md transform scale-[1.02]"
+                                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100/80"}
+                                `}
+                            >
+                                <LayoutDashboard size={18} />
+                                Menu Manager
+                            </button>
                         </div>
-                    )}
+                    </div>
 
-                    {restaurant && (
-                        <div className="bg-white  p-6 rounded-2xl shadow-sm border border-gray-100">
-                            <MenuManager restaurantSlug={restaurant.slug} />
-                        </div>
-                    )}
-                </section>
+                    {/* Content Area */}
+                    <div className="min-h-[500px] animate-in fade-in zoom-in-95 duration-300">
+                        {activeTab === "outlet" && (
+                            <OutletForm
+                                initialData={restaurant}
+                                ownerId={user.$id}
+                                onSave={handleOutletSave}
+                                hasMenuItems={hasMenuItems}
+                            />
+                        )}
+
+                        {activeTab === "menu" && restaurant && (
+                            <div className="bg-white p-0 rounded-3xl shadow-[0_2px_20px_-5px_rgba(0,0,0,0.05)] border border-gray-100 overflow-hidden">
+                                <MenuManager restaurantSlug={restaurant.slug} />
+                            </div>
+                        )}
+                    </div>
+                </div>
 
             </main>
             <Footer />
         </div>
     );
 }
+
+

@@ -1,5 +1,9 @@
 import { Models } from "appwrite";
 
+// --- Plan & Ordering Types ---
+export type PlanType = "menu" | "whatsapp" | "admin_orders";
+export type OrderingMode = "menu" | "whatsapp" | "admin_orders";
+
 // --- Appwrite Document Shapes (Flat) ---
 
 export interface RestaurantDocument extends Models.Document {
@@ -15,12 +19,15 @@ export interface RestaurantDocument extends Models.Document {
     supportsTakeaway: boolean;
     supportsDelivery: boolean;
 
-    onlineOrderingEnabled: boolean;
-
     manuallyClosed: boolean;
 
     deliveryAreas: string[]; // Feature 1
     upiId: string;           // Feature 2
+
+    // Plan Fields
+    plan: PlanType;
+    planExpiry: string; // ISO Date
+    orderingMode: OrderingMode;
 
     // Timings (Strings HH:MM)
     monOpen: string; monClose: string;
@@ -52,6 +59,7 @@ export interface WorkingHours {
 }
 
 export interface Restaurant {
+    id: string; // Appwrite Document ID
     name: string;
     slug: string;
     description: string;
@@ -65,12 +73,17 @@ export interface Restaurant {
         delivery: boolean;
     };
 
-    onlineOrderingEnabled: boolean;
+
 
     manuallyClosed: boolean;
 
     deliveryAreas: string[]; // Feature 1
     upiId: string | null;    // Feature 2
+
+    // Plan Fields (Transformed)
+    plan: PlanType;
+    planExpiry: Date;
+    orderingMode: OrderingMode;
 
     // Transformed from flat fields to nested object
     timings: {
@@ -110,4 +123,27 @@ export interface CartItem {
     isVeg: boolean;
     variant?: string;
     quantity: number;
+}
+
+// --- Order Types ---
+
+export type OrderType = "dine_in" | "takeaway" | "delivery";
+
+export interface OrderItem {
+    name: string;
+    qty: number;
+    price: number;
+    variant?: string | null;
+}
+
+export interface OrderDocument extends Models.Document {
+    restaurantId: string;
+    orderType: OrderType;
+    customerName: string;
+    customerPhone?: string;     // Required for takeaway/delivery
+    dineInLocation?: string;    // Required for dine_in
+    deliveryArea?: string;      // Required for delivery
+    deliveryAddress?: string;   // Required for delivery
+    items: string[];            // Array of JSON strings: "{\"name\":\"Burger\",\"qty\":2,\"price\":120}"
+    total: number;
 }

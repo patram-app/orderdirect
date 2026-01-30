@@ -17,6 +17,8 @@ import {
   Copy,
   ExternalLink,
   Plus,
+  Utensils,
+  Phone,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -49,7 +51,7 @@ const defaultData = {
   supportsDineIn: true,
   supportsTakeaway: true,
   supportsDelivery: true,
-  onlineOrderingEnabled: true,
+
   manuallyClosed: false,
   deliveryAreas: [],
   upiId: "",
@@ -78,8 +80,6 @@ export default function OutletForm({
   const [loading, setLoading] = useState(false);
   const [showAllHours, setShowAllHours] = useState(false);
   const [newAreaInput, setNewAreaInput] = useState("");
-
-
 
   const [formData, setFormData] = useState<Partial<RestaurantDocument>>(
     initialData || defaultData,
@@ -143,10 +143,13 @@ export default function OutletForm({
         return;
       }
 
+      // Prepare payload - exclude non-schema fields
+      const payload = { ...formData, ownerId } as Partial<RestaurantDocument>;
+
       let result;
       if (initialData?.$id) {
         // Update
-        const dataToSave = { ...formData };
+        const dataToSave = { ...payload };
         delete dataToSave.$id;
         delete dataToSave.$createdAt;
         delete dataToSave.$updatedAt;
@@ -178,7 +181,7 @@ export default function OutletForm({
           DATABASE_ID,
           RESTAURANTS_COLLECTION_ID,
           ID.unique(),
-          { ...formData, ownerId } as RestaurantDocument,
+          payload,
           [
             Permission.read(Role.any()),
             Permission.update(Role.user(ownerId)),
@@ -447,60 +450,106 @@ export default function OutletForm({
           </div>
         </div>
 
-        {/* SECTION 2: Online Ordering (WhatsApp) */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
+        {/* SECTION 2: Ordering Configuration */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-gray-900">
-                Online Ordering
-              </h3>
+              <h3 className="text-lg font-bold text-gray-900">Ordering Configuration</h3>
               <p className="text-sm text-gray-500">
-                Enable this to accept orders via WhatsApp.
+                Manage how you accept orders based on your plan.
               </p>
             </div>
 
-            <Switch
-              checked={formData.onlineOrderingEnabled !== false}
-              onCheckedChange={(checked) =>
-                handleChange("onlineOrderingEnabled", checked)
-              }
-              className="data-[state=checked]:bg-green-600"
-            />
+            {/* Plan Badge */}
+            <div className={`px-2.5 py-1 rounded-full text-xs font-semibold uppercase border ${formData.plan === 'admin_orders' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+              formData.plan === 'whatsapp' ? 'bg-green-100 text-green-800 border-green-200' :
+                'bg-gray-100 text-gray-800 border-gray-200'
+              }`}>
+              Plan: {formData.plan?.replace("_", " ") || "Menu"}
+            </div>
           </div>
 
-          <div className={cn(
-            "rounded-xl border-2 p-4 transition-all",
-            formData.onlineOrderingEnabled !== false
-              ? "border-green-200 bg-green-50"
-              : "border-amber-200 bg-amber-50"
-          )}>
-            <div className="flex items-start gap-3">
-              {formData.onlineOrderingEnabled !== false ? (
-                <>
-                  <div className="bg-green-100 p-2 rounded-full shrink-0">
-                    <Check className="text-green-700" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-green-800">Accepting Online Orders</h4>
-                    <p className="text-sm text-green-700/80 mt-1">
-                      Customers can browse your menu and place orders via WhatsApp.
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="bg-amber-100 p-2 rounded-full shrink-0">
-                    <Info className="text-amber-700" size={20} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-amber-800">Menu Only Mode</h4>
-                    <p className="text-sm text-amber-700/80 mt-1">
-                      Online ordering is <strong>disabled</strong>. Customers can view your menu but cannot place orders via the website. Call button is still visible.
-                    </p>
-                  </div>
-                </>
+          {/* Mode Selector Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+            {/* 1. MENU ONLY (Always Enabled) */}
+            <div
+              onClick={() => handleChange("orderingMode", "menu")}
+              className={cn(
+                "relative p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col gap-2",
+                formData.orderingMode === 'menu'
+                  ? "border-amber-500 bg-amber-50 ring-1 ring-amber-500"
+                  : "border-gray-200 bg-white hover:border-amber-200 hover:bg-amber-50/50"
               )}
+            >
+              <div className="flex items-center justify-between">
+                <span className="p-2 rounded-full bg-amber-100 text-amber-700"><Utensils size={18} /></span>
+                {formData.orderingMode === 'menu' && <Check className="text-amber-600" size={18} />}
+              </div>
+              <div>
+                <h4 className={cn("font-bold", formData.orderingMode === 'menu' ? "text-amber-900" : "text-gray-900")}>Menu Only</h4>
+                <p className="text-xs text-gray-500 mt-1">Ordering disabled. Show catalogue only.</p>
+              </div>
             </div>
+
+            {/* 2. WHATSAPP ORDERS (Gated by WhatsApp Plan) */}
+            <button
+              type="button"
+              disabled={formData.plan === 'menu'}
+              onClick={() => handleChange("orderingMode", "whatsapp")}
+              className={cn(
+                "relative p-4 rounded-xl border-2 transition-all text-left flex flex-col gap-2",
+                formData.plan === 'menu' ? "opacity-50 cursor-not-allowed bg-gray-50 border-gray-100" : "cursor-pointer",
+                formData.orderingMode === 'whatsapp'
+                  ? "border-green-500 bg-green-50 ring-1 ring-green-500"
+                  : "border-gray-200 bg-white hover:border-green-200 hover:bg-green-50/50"
+              )}
+            >
+              {formData.plan === 'menu' && (
+                <div className="absolute top-2 right-2 text-xs font-bold px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded flex items-center gap-1">
+                  <Lock size={10} /> LOCK
+                </div>
+              )}
+
+              <div className="flex items-center justify-between w-full">
+                <span className="p-2 rounded-full bg-green-100 text-green-700"><Phone size={18} /></span>
+                {formData.orderingMode === 'whatsapp' && <Check className="text-green-600" size={18} />}
+              </div>
+              <div>
+                <h4 className={cn("font-bold", formData.orderingMode === 'whatsapp' ? "text-green-900" : "text-gray-900")}>WhatsApp</h4>
+                <p className="text-xs text-gray-500 mt-1">Orders sent to your phone number.</p>
+              </div>
+            </button>
+
+            {/* 3. ADMIN ORDERS (Gated by Admin Plan) */}
+            <button
+              type="button"
+              disabled={formData.plan !== 'admin_orders'}
+              onClick={() => handleChange("orderingMode", "admin_orders")}
+              className={cn(
+                "relative p-4 rounded-xl border-2 transition-all text-left flex flex-col gap-2",
+                formData.plan !== 'admin_orders' ? "opacity-50 cursor-not-allowed bg-gray-50 border-gray-100" : "cursor-pointer",
+                formData.orderingMode === 'admin_orders'
+                  ? "border-purple-500 bg-purple-50 ring-1 ring-purple-500"
+                  : "border-gray-200 bg-white hover:border-purple-200 hover:bg-purple-50/50"
+              )}
+            >
+              {formData.plan !== 'admin_orders' && (
+                <div className="absolute top-2 right-2 text-xs font-bold px-1.5 py-0.5 bg-gray-200 text-gray-500 rounded flex items-center gap-1">
+                  <Lock size={10} /> LOCK
+                </div>
+              )}
+
+              <div className="flex items-center justify-between w-full">
+                <span className="p-2 rounded-full bg-purple-100 text-purple-700"><Wand2 size={18} /></span>
+                {formData.orderingMode === 'admin_orders' && <Check className="text-purple-600" size={18} />}
+              </div>
+              <div>
+                <h4 className={cn("font-bold", formData.orderingMode === 'admin_orders' ? "text-purple-900" : "text-gray-900")}>Admin Orders</h4>
+                <p className="text-xs text-gray-500 mt-1">Receive orders in Dashboard Live Orders.</p>
+              </div>
+            </button>
+
           </div>
         </div>
 
@@ -534,14 +583,9 @@ export default function OutletForm({
           </div>
         </div>
 
-        {/* Feature 1: Delivery Areas */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Delivery Settings</h3>
-            <p className="text-sm text-gray-500">Configure where you deliver.</p>
-          </div>
-
-          <div className="space-y-3">
+        {/* Feature 1: Delivery Areas (Conditional) */}
+        {formData.supportsDelivery && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
             <div className="flex justify-between">
               <Label className="text-sm font-medium text-gray-700">Delivery Areas (Optional)</Label>
               <span className="text-xs text-gray-400">
@@ -611,36 +655,29 @@ export default function OutletForm({
               )}
             </div>
           </div>
-        </div>
+        )}
 
         {/* Feature 2: UPI ID */}
-        <div>
-          <div className="mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Payment Settings</h3>
-            <p className="text-sm text-gray-500">Configure payment options.</p>
+        <div className="space-y-2">
+          <div className="flex justify-between">
+            <Label className="text-sm font-medium text-gray-700">UPI ID / VPA (Optional)</Label>
+            <span className="text-xs text-gray-400">
+              {(formData.upiId || "").length} / 40
+            </span>
           </div>
-
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label className="text-sm font-medium text-gray-700">UPI ID / VPA (Optional)</Label>
-              <span className="text-xs text-gray-400">
-                {(formData.upiId || "").length} / 40
-              </span>
-            </div>
-            <div className="relative">
-              <input
-                className="w-full p-2 border rounded-md pl-10"
-                placeholder="merchant@upi"
-                maxLength={40}
-                value={formData.upiId || ""}
-                onChange={(e) => handleChange("upiId", e.target.value)}
-              />
-              <div className="absolute left-3 top-2.5 text-gray-400 font-bold text-xs">UPI</div>
-            </div>
-            <p className="text-xs text-gray-500">
-              Add your UPI ID to show a &quot;Pay via UPI&quot; button. Leave blank to hide.
-            </p>
+          <div className="relative">
+            <input
+              className="w-full p-2 border rounded-md pl-10"
+              placeholder="merchant@upi"
+              maxLength={40}
+              value={formData.upiId || ""}
+              onChange={(e) => handleChange("upiId", e.target.value)}
+            />
+            <div className="absolute left-3 top-2.5 text-gray-400 font-bold text-xs">UPI</div>
           </div>
+          <p className="text-xs text-gray-500">
+            Add your UPI ID to show a &quot;Pay via UPI&quot; button on cart.
+          </p>
         </div>
 
       </div>
