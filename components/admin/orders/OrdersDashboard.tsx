@@ -17,9 +17,48 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [checkedOrders, setCheckedOrders] = useState<Set<string>>(new Set());
+
+    // Audio ref
+    const audioRef = useRef<HTMLAudioElement | null>(null);
 
     // Track if we have fetched at least once
     const hasFetched = useRef(false);
+    // Track the latest order ID we have seen to detect new orders
+    const lastLatestOrderId = useRef<string | null>(null);
+
+    // Initialize audio
+    useEffect(() => {
+        audioRef.current = new Audio("/notification.mp3");
+    }, []);
+
+    // Load checked state from local storage on mount
+    useEffect(() => {
+        const storedChecked = localStorage.getItem(`checkedOrders_${restaurantId}`);
+        if (storedChecked) {
+            try {
+                const parsed = JSON.parse(storedChecked);
+                if (Array.isArray(parsed)) {
+                    setCheckedOrders(new Set(parsed));
+                }
+            } catch (e) {
+                console.error("Failed to parse checked orders from local storage", e);
+            }
+        }
+    }, [restaurantId]);
+
+    // Save checked state to local storage whenever it changes
+    useEffect(() => {
+        if (hasFetched.current) { // Only save after initial load to avoid overwriting with empty
+            localStorage.setItem(`checkedOrders_${restaurantId}`, JSON.stringify(Array.from(checkedOrders)));
+        }
+    }, [checkedOrders, restaurantId]);
+
+    const playNotificationSound = () => {
+        if (audioRef.current) {
+            audioRef.current.play().catch(e => console.error("Error playing sound:", e));
+        }
+    };
 
     const fetchOrders = useCallback(async (isManual = false) => {
         if (!restaurantId || !DATABASE_ID || !ORDERS_COLLECTION_ID) return;
@@ -36,11 +75,24 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
                 [
                     Query.equal("restaurantId", restaurantId), // Filter by restaurant
                     Query.orderDesc("$createdAt"),            // Newest first
-                    Query.limit(50)                           // Last 50 orders
+                    Query.limit(20)                           // Last 20 orders (Optimized)
                 ]
             );
 
             const freshOrders = res.documents as unknown as OrderDocument[];
+
+            // Check for new orders to play sound
+            if (freshOrders.length > 0) {
+                const newestOrderId = freshOrders[0].$id;
+                // If we have a last known order ID, and the new fetch has a different latest ID, it's a new order
+                // OR if it's the very first fetch, we don't play sound (usually), BUT user said "whenever a new order comes"
+                // Let's play sound only if we have already fetched once and detect a change.
+                if (hasFetched.current && lastLatestOrderId.current && newestOrderId !== lastLatestOrderId.current) {
+                    playNotificationSound();
+                }
+                lastLatestOrderId.current = newestOrderId;
+            }
+
             setOrders(freshOrders);
             setLastUpdated(new Date());
             hasFetched.current = true;
@@ -66,11 +118,11 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
         // Initial fetch
         fetchOrders();
 
-        // Poll every 60 seconds (1 minute)
+        // Poll every 30 seconds
         const intervalId = setInterval(() => {
-            console.log("� Auto-refreshing orders...");
+            console.log("🔄 Auto-refreshing orders...");
             fetchOrders();
-        }, 60000);
+        }, 30000);
 
         return () => clearInterval(intervalId);
     }, [restaurantId, fetchOrders]);
@@ -78,30 +130,56 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
     // Format time helper
     const getFormattedTime = () => {
         if (!lastUpdated) return "";
-        return lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        return lastUpdated.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+    };
+
+    const handleToggleCheck = (orderId: string) => {
+        setCheckedOrders(prev => {
+            const next = new Set(prev);
+            if (next.has(orderId)) {
+                next.delete(orderId); // Optional: Allow unchecking? Valid.
+            } else {
+                next.add(orderId);
+            }
+            return next;
+        });
+    };
+
+    const handleCheckAll = () => {
+        const allIds = orders.map(o => o.$id);
+        setCheckedOrders(prev => {
+            const next = new Set(prev);
+            allIds.forEach(id => next.add(id));
+            return next;
+        });
     };
 
     return (
         <div className="space-y-6">
             {/* Status Bar */}
-            <div className="flex items-center justify-between text-sm text-gray-500 bg-white px-4 py-2 rounded-lg border border-gray-100 shadow-sm">
-                <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-2 text-gray-600">
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
-                        </span>
-                        <span className="font-medium">
-                            Auto-refresh on (1m)
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-4">
+            <div className="flex flex-row flex-wrap items-center justify-between bg-white px-4 py-3 rounded-lg border border-gray-100 shadow-sm gap-y-3">
+                <div className="flex items-center gap-2 text-gray-600 text-sm">
+                    <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+                    </span>
+                    <span className="font-bold text-gray-700 whitespace-nowrap">
+                        Live (30s)
+                    </span>
                     {lastUpdated && (
-                        <span className="text-xs text-gray-400 hidden sm:inline-block">
-                            Updated: {getFormattedTime()}
+                        <span className="text-xs text-gray-400 ml-2 whitespace-nowrap">
+                            {getFormattedTime()}
                         </span>
                     )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={handleCheckAll}
+                        className="px-3 py-1.5 text-xs font-bold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors border border-gray-200 whitespace-nowrap"
+                    >
+                        Check All
+                    </button>
 
                     <button
                         onClick={() => fetchOrders(true)}
@@ -109,7 +187,7 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-md border border-gray-200 transition-colors disabled:opacity-50"
                     >
                         <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
-                        <span className="font-medium text-xs">
+                        <span className="font-medium text-xs hidden sm:inline">
                             {isRefreshing ? "Refreshing..." : "Refresh"}
                         </span>
                     </button>
@@ -143,9 +221,14 @@ export default function OrdersDashboard({ restaurantId }: OrdersDashboardProps) 
                     </button>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
                     {orders.map((order) => (
-                        <OrderCard key={order.$id} order={order} />
+                        <OrderCard
+                            key={order.$id}
+                            order={order}
+                            isChecked={checkedOrders.has(order.$id)}
+                            onToggleCheck={() => handleToggleCheck(order.$id)}
+                        />
                     ))}
                 </div>
             )}
